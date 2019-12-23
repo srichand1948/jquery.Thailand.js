@@ -17,63 +17,63 @@ $.Thailand = function (options) {
     options = $.extend({}, $.Thailand.defaults, options);
 
     var preprocess = function (data) {
-            var lookup = [],
-                words = [],
-                expanded = [],
-                t;
+        var lookup = [],
+            words = [],
+            expanded = [],
+            t;
 
-            if (data.lookup && data.words) {
-                // compact with dictionary and lookup
-                lookup = data.lookup.split('|');
-                words = data.words.split('|');
-                data = data.data;
+        if (data.lookup && data.words) {
+            // compact with dictionary and lookup
+            lookup = data.lookup.split('|');
+            words = data.words.split('|');
+            data = data.data;
+        }
+
+        t = function (text) {
+
+            function repl(m) {
+                var ch = m.charCodeAt(0);
+                return words[ch < 97 ? ch - 65 : 26 + ch - 97];
             }
 
-            t = function (text) {
-                
-                function repl(m) {
-                    var ch = m.charCodeAt(0);
-                    return words[ch < 97 ? ch - 65 : 26 + ch - 97];
-                }
-                
-                if (typeof text === 'number') {
-                    text = lookup[text];
-                }
-                return text.replace(/[A-Z]/ig, repl);
-            };
+            if (typeof text === 'number') {
+                text = lookup[text];
+            }
+            return text.replace(/[A-Z]/ig, repl);
+        };
 
-            // decompacted database in hierarchical form of:
-            // [["province",[["amphur",[["district",["zip"...]]...]]...]]...]
-            data.map(function (provinces) {
+        // decompacted database in hierarchical form of:
+        // [["province",[["amphur",[["district",["zip"...]]...]]...]]...]
+        data.map(function (provinces) {
 
-                var i = 1;
-                if(provinces.length === 3){ // geographic database
-                    i = 2;
-                }
+            var i = 1;
+            if (provinces.length === 3) { // geographic database
+                i = 2;
+            }
 
-                provinces[i].map(function (amphoes) {
-                    amphoes[i].map(function (districts) {
-                        districts[i] = districts[i] instanceof Array ? districts[i] : [districts[i]];
-                        districts[i].map(function (zipcode) {
-                            var entry = {
-                                district: t(districts[0]),
-                                amphoe: t(amphoes[0]),
-                                province: t(provinces[0]),
-                                zipcode: zipcode
-                            };
-                            if(i === 2){ // geographic database
-                                entry.district_code = districts[1] || false;
-                                entry.amphoe_code = amphoes[1] || false;
-                                entry.province_code = provinces[1] || false;
-                            }
-                            expanded.push(entry);
-                        });
+            provinces[i].map(function (amphoes) {
+                amphoes[i].map(function (districts) {
+                    districts[i] = districts[i] instanceof Array ? districts[i] : [districts[i]];
+                    districts[i].map(function (zipcode) {
+                        var entry = {
+                            district: t(districts[0]),
+                            amphoe: t(amphoes[0]),
+                            province: t(provinces[0]),
+                            zipcode: zipcode
+                        };
+                        if (i === 2) { // geographic database
+                            entry.district_code = districts[1] || false;
+                            entry.amphoe_code = amphoes[1] || false;
+                            entry.province_code = provinces[1] || false;
+                        }
+                        expanded.push(entry);
                     });
                 });
-
             });
-            return expanded;
-        },
+
+        });
+        return expanded;
+    },
         similar_text = function (first, second, percentage) {
             // compare 2 strings, return value of similarity compare to each other. more value = more similarity
             first += '';
@@ -130,6 +130,11 @@ $.Thailand = function (options) {
             }
         },
         loadDB = function (callback) {
+            if ($.Thailand.DB != undefined) {
+                callback($.Thailand.DB)
+                return;
+            }
+
             var type = options.database_type.toLowerCase(),
                 xhr;
 
@@ -139,56 +144,56 @@ $.Thailand = function (options) {
 
             switch (type) {
 
-            case 'json':
+                case 'json':
 
-                $.getJSON(options.database, function (json) {
-                    callback(new JQL(preprocess(json)));
-                }).fail(function (err) {
-                    throw new Error('File "' + options.database + '" is not exists.');
-                });
-                break;
-
-            case 'zip':
-
-                if (!options.zip_worker_path) {
-                    $('script').each(function () {
-                        var fragments = this.src.split('/'),
-                            filename = fragments.pop();
-                        if (filename === 'zip.js') {
-                            zip.workerScriptsPath = fragments.join('/') + '/';
-                        }
+                    $.getJSON(options.database, function (json) {
+                        callback(new JQL(preprocess(json)));
+                    }).fail(function (err) {
+                        throw new Error('File "' + options.database + '" is not exists.');
                     });
-                }
+                    break;
 
-                xhr = new XMLHttpRequest();
-                xhr.responseType = 'blob';
+                case 'zip':
 
-                xhr.onreadystatechange = function () {
-                    if (xhr.readyState === 4) {
-                        if (xhr.status === 200) {
-                            zip.createReader(new zip.BlobReader(xhr.response), function (zipReader) {
-                                zipReader.getEntries(function (r) {
-                                    r[0].getData(new zip.BlobWriter(), function (blob) {
-                                        var reader = new FileReader();
-                                        reader.onload = function () {
-                                            callback(new JQL(preprocess(JSON.parse(reader.result))));
-                                        };
-                                        reader.readAsText(blob);
+                    if (!options.zip_worker_path) {
+                        $('script').each(function () {
+                            var fragments = this.src.split('/'),
+                                filename = fragments.pop();
+                            if (filename === 'zip.js') {
+                                zip.workerScriptsPath = fragments.join('/') + '/';
+                            }
+                        });
+                    }
+
+                    xhr = new XMLHttpRequest();
+                    xhr.responseType = 'blob';
+
+                    xhr.onreadystatechange = function () {
+                        if (xhr.readyState === 4) {
+                            if (xhr.status === 200) {
+                                zip.createReader(new zip.BlobReader(xhr.response), function (zipReader) {
+                                    zipReader.getEntries(function (r) {
+                                        r[0].getData(new zip.BlobWriter(), function (blob) {
+                                            var reader = new FileReader();
+                                            reader.onload = function () {
+                                                callback(new JQL(preprocess(JSON.parse(reader.result))));
+                                            };
+                                            reader.readAsText(blob);
+                                        });
                                     });
                                 });
-                            });
-                        } else {
-                            throw new Error('File "' + options.database + '" is not exists.');
+                            } else {
+                                throw new Error('File "' + options.database + '" is not exists.');
+                            }
                         }
-                    }
-                };
-                xhr.open('GET', options.database);
-                xhr.send();
+                    };
+                    xhr.open('GET', options.database);
+                    xhr.send();
 
-                break;
+                    break;
 
-            default:
-                throw new Error('Unknown database type: "' + options.database_type + '". Please define database_type explicitly (json or zip)');
+                default:
+                    throw new Error('Unknown database type: "' + options.database_type + '". Please define database_type explicitly (json or zip)');
             }
 
         };
@@ -208,9 +213,9 @@ $.Thailand = function (options) {
                 }
             },
             autocomplete_handler = function (e, v) { // set value when user selected autocomplete choice
-                
+
                 for (i in options) {
-                    key = i.replace('$','');
+                    key = i.replace('$', '');
                     if (i.indexOf('$') > -1 && options.hasOwnProperty(i) && options[i] && v[key]) {
                         options[i].typeahead('val', v[key]).trigger('change');
                     }
@@ -226,7 +231,7 @@ $.Thailand = function (options) {
 
         for (i in options) {
             if (i.indexOf('$') > -1 && i !== '$search' && options.hasOwnProperty(i) && options[i]) {
-                
+
                 options[i].typeahead({
                     hint: true,
                     highlight: true,
@@ -239,13 +244,13 @@ $.Thailand = function (options) {
                             field = this.$el.data('field');
                         try {
                             possibles = DB.select('*').where(field).match('^' + str).orderBy(field).fetch();
-                        } catch (e) {}
+                        } catch (e) { }
                         callback(possibles);
                     },
                     display: function (data) {
                         return data[this.$el.data('field')];
                     }
-                }).parent().find('.tt-dataset').data('field', i.replace('$',''));
+                }).parent().find('.tt-dataset').data('field', i.replace('$', ''));
 
             }
         }
@@ -267,9 +272,9 @@ $.Thailand = function (options) {
                             .concat(DB.select('*').where('province').match(str).fetch())
                             .concat(DB.select('*').where('amphoe').match(str).fetch())
                             .concat(DB.select('*').where('district').match(str).fetch())
-                            .map(function(item){
+                            .map(function (item) {
                                 return JSON.stringify(item);
-                            }).filter(function(item, pos, self){
+                            }).filter(function (item, pos, self) {
                                 return self.indexOf(item) == pos;
                             }).map(function (self) { // give a likely score, will use to sort data later
 
@@ -286,17 +291,17 @@ $.Thailand = function (options) {
                                 return self;
 
                             })).select('*').orderBy('likely desc').fetch();
-                    } catch (e) {}
+                    } catch (e) { }
 
                     callback(possibles);
                 },
-                
+
                 display: function (data) {
                     return '';
                 }
             });
         }
-        
+
         // on autocomplete
         for (i in options) {
             if (i.indexOf('$') > -1 && options.hasOwnProperty(i) && options[i]) {
@@ -328,8 +333,8 @@ $.Thailand.defaults = {
     zip_worker_path: false, // path to zip worker folder e.g. './jquery.Thailand.js/dependencies/zip.js/'; Leave it to false unless you found any error.
     autocomplete_size: 20,
 
-    onLoad: function () {},
-    onDataFill: function () {},
+    onLoad: function () { },
+    onDataFill: function () { },
     templates: false,
     $district: false,
     $district_code: false, // geodb only
@@ -341,6 +346,6 @@ $.Thailand.defaults = {
     $search: false
 };
 
-$.Thailand.setup = function(options){
+$.Thailand.setup = function (options) {
     $.extend($.Thailand.defaults, options);
 };
