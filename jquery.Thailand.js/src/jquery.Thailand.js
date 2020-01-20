@@ -66,12 +66,24 @@ $.Thailand = function (options) {
                             entry.amphoe_code = amphoes[1] || false;
                             entry.province_code = provinces[1] || false;
                         }
-                        expanded.push(entry);
+
+                        if (options.$district === false) {
+                            var index = expanded.findIndex(function (data) {
+                                return data.zipcode == zipcode && data.amphoe == t(amphoes[0]);
+                            });
+
+                            if (index === -1)
+                                expanded.push(entry);
+                        }
+                        else {
+                            expanded.push(entry);
+                        }
                     });
                 });
             });
 
         });
+
         return expanded;
     },
         similar_text = function (first, second, percentage) {
@@ -206,10 +218,20 @@ $.Thailand = function (options) {
             defaultTemplates = { // template of autocomplete choices
                 empty: ' ',
                 suggestion: function (data) {
+                    if (options.$district) {
+                        data.district = data.district + ' » '
+                    }
                     if (data.zipcode) {
                         data.zipcode = ' » ' + data.zipcode;
                     }
-                    return '<div>' + data.district + ' » ' + data.amphoe + ' » ' + data.province + data.zipcode + '</div>';
+
+                    var result = ''
+                    result += options.$district ? data.district + ' » ' : ''
+                    result += options.$amphoe ? data.amphoe + ' » ' : ''
+                    result += options.$province ? data.province + ' » ' : ''
+                    result += options.$zipcode ? data.zipcode : ''
+
+                    return '<div>' + result + '</div>'
                 }
             },
             autocomplete_handler = function (e, v) { // set value when user selected autocomplete choice
